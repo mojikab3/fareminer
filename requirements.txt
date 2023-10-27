@@ -1,11 +1,5 @@
 requests
-csv
 pytz
-re
-json
-argparse
-bs4
-datetime
-timezonefinder
+beautifulsoup4
 geopy
-jdatetime
+timezonefinder
