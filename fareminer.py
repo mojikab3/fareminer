@@ -210,6 +210,7 @@ def GetInterFare(origin, destination, rate=50000, date=str(datetime.now().date()
                     "page": 1,
                     "filter": {
                         "outboundStops": [
+                            "0",
                             "1"
                         ]
                     }
