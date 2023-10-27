@@ -40,7 +40,7 @@ python ./fareminer.py -d thr tbz -s 2023-11-3 -e 2023-11-18
 ```
 To get the international flight data use -i instead of -d. leave the end date if you want to get the data for just a day instead of a period. you can change the output file name with -o 
 ```bash
-python ./fareminer.py -i fra ika -s 2023-11-2 -o FRA-IKA.csv
+python ./fareminer.py -i fra ika -s 2023-11-2
 ```
 The mined data gets exported into a csv file which you can import into excell or google sheets or analyze it using pandas
 
