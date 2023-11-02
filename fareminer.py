@@ -98,6 +98,9 @@ def GetExchangeRate():
 
 # Gets flight fares for domestic routes
 def GetDomesticFare(origin, destination, rate=50000, date=str(datetime.now().date()), output=None):
+    
+    print(f'Getting the data for {origin} => {destination}')
+    
     if output is None: 
         output = origin + '_' + destination + '_' + str(datetime.now().date())
     url = "https://respina24.ir/flight/availability"
@@ -160,16 +163,19 @@ def GetDomesticFare(origin, destination, rate=50000, date=str(datetime.now().dat
 
 # Gets flight fares for international routes
 def GetInterFare(origin, destination, rate=50000, date=str(datetime.now().date()), output=None):
+    
+    print(f'Getting the data for {origin} => {destination}')
+    print(f'Press Ctrl + D to stop the script if you\'re happy with the results')
+    
     if output is None: 
         output = origin + '_' + destination + '_' + str(datetime.now().date())
     firstUrl = "https://respina24.ir/internationalflight/getFlightAjax"
     secondUrl = "https://respina24.ir/internationalflight/getFlightAjax2"
     thirdUrl = "https://respina24.ir/internationalflight/getFlightAjaxPagination"
-    
+ 
     headers = {
         "Content-Type": "application/json;charset=UTF-8",
     }
-    
     distance = GetFlightDistance(origin, destination) 
     cabinTypes = ["1", "3", "5"]
     for cabinType in cabinTypes:
@@ -189,12 +195,12 @@ def GetInterFare(origin, destination, rate=50000, date=str(datetime.now().date()
             "searchId":0
         }
         
-        
-        apiIds = ["1", "12", "7", "8", "10"]
+        apiIds = [str(i) for i in range(1, 13)]
         response = requests.post(firstUrl, headers=headers, json=firstPayload)
         if response.status_code == 200:
-            search_id = response.json().get('search_id') 
-           
+            data = response.json()
+            search_id = data.get('search_id')
+            
             for apiId in apiIds:
                 secondPayload = {
                     "api_id": apiId,
@@ -205,77 +211,78 @@ def GetInterFare(origin, destination, rate=50000, date=str(datetime.now().date()
                 secondResponse = requests.post(secondUrl, json=secondPayload, headers=headers)
                     
             if secondResponse.status_code == 200: 
-                thirdPayload = {
-                    "searchId": search_id,
-                    "page": 1,
-                    "filter": {
-                        "outboundStops": [
-                            "0",
-                            "1"
-                        ]
-                    }
-                } 
-                
-                thirdResponse = requests.post(thirdUrl, json=thirdPayload, headers=headers)
-                
-                data = thirdResponse.json()
-                flights = data.get('flights', [])
-                with open(output + '.csv', 'a', newline='') as csvfile:
-                    fieldnames = ['From', 'Stop', 'To', 'Total Time',
-                                'Total Distance (km)', 'Class',
-                                'Departure Date and Time (GMT)', 'Arrival Date and Time (GMT)',
-                                'Aircraft', 'Airline', 'Flight Number',
-                                'Cost (Toman)', 'Cost (USD)', 'USD to Toman Rate']
-                
-                    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-                    if csvfile.tell() == 0:
-                        writer.writeheader()
+                for page in range(1, 4):
+                    thirdPayload = {
+                        "searchId": search_id,
+                        "page": page,
+                        "filter": {
+                            "outboundStops": [
+                                "0",
+                                "1"
+                            ]
+                        }
+                    } 
                     
-                    for flight in flights:
-                        masir = flight.get('masir', [])
-                        legs = masir[0].get('legs', [])
-                        outboundStops = flight.get('outboundStops')
+                    thirdResponse = requests.post(thirdUrl, json=thirdPayload, headers=headers)
+                    
+                    data = thirdResponse.json()
+                    flights = data.get('flights', [])
+                    with open(output + '.csv', 'a', newline='') as csvfile:
+                        fieldnames = ['From', 'Stop', 'To', 'Total Time',
+                                    'Total Distance (km)', 'Class',
+                                    'Departure Date and Time (GMT)', 'Arrival Date and Time (GMT)',
+                                    'Aircraft', 'Airline', 'Flight Number',
+                                    'Cost (Toman)', 'Cost (USD)', 'USD to Toman Rate']
+                    
+                        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                        if csvfile.tell() == 0:
+                            writer.writeheader()
                         
-                        fare = flight.get('adultPrice')
-                        cabin = legs[0].get('cabinTypeValue') 
-                        airline = masir[0].get('AirlineName')
-                        duration = masir[0].get('JourneyDuration')
-                        flightNumbers = masir[0].get('flightNumbers')
-                        
-                        departureCity = masir[0].get('fromCityName')
-                        departureAirport = masir[0].get('from')
-                        departureDateTime = masir[0].get('DepartureDateTime') 
-                        
-                        if outboundStops == 1:
-                            stopCity = legs[0].get('toCityName')
-                            stopAirport = legs[0].get('to')
-                            stopString = stopCity + '(' + stopAirport + ')'
-                        else: 
-                            stopString = ''
+                        for flight in flights:
+                            masir = flight.get('masir', [])
+                            legs = masir[0].get('legs', [])
+                            outboundStops = flight.get('outboundStops')
                             
-                        arrivalCity = masir[0].get('to')
-                        arrivalAirport = masir[0].get('toCityName') 
-                        arrivalDateTime = masir[0].get('ArrivalDateTime') 
-                        writer.writerow({
-                            'From': departureCity + '(' + departureAirport + ')',
-                            'Stop': stopString,
-                            'To': arrivalCity + '(' + arrivalAirport + ')',
-                            'Total Time': duration,
-                            'Total Distance (km)': distance,
-                            'Class': cabin,
-                            'Departure Date and Time (GMT)': GetGMTDateTime(departureCity, datetime.fromisoformat(departureDateTime)),
-                            'Arrival Date and Time (GMT)': GetGMTDateTime(arrivalCity , datetime.fromisoformat(arrivalDateTime)),
-                            'Aircraft': '', 
-                            'Flight Number': flightNumbers,
-                            'Airline': airline,
-                            'Cost (Toman)': fare / 10,  
-                            'Cost (USD)': '{:.2f}'.format(fare / int(rate)),
-                            'USD to Toman Rate': rate / 10,  
-                        })
+                            fare = flight.get('adultPrice')
+                            cabin = legs[0].get('cabinTypeValue') 
+                            airline = masir[0].get('AirlineName')
+                            duration = masir[0].get('JourneyDuration')
+                            flightNumbers = masir[0].get('flightNumbers')
+                            
+                            departureCity = masir[0].get('fromCityName')
+                            departureAirport = masir[0].get('from')
+                            departureDateTime = masir[0].get('DepartureDateTime') 
+                            
+                            if outboundStops == 1:
+                                stopCity = legs[0].get('toCityName')
+                                stopAirport = legs[0].get('to')
+                                stopString = stopCity + '(' + stopAirport + ')'
+                            else: 
+                                stopString = ''
+                                
+                            arrivalCity = masir[0].get('to')
+                            arrivalAirport = masir[0].get('toCityName') 
+                            arrivalDateTime = masir[0].get('ArrivalDateTime') 
+                            writer.writerow({
+                                'From': departureCity + '(' + departureAirport + ')',
+                                'Stop': stopString,
+                                'To': arrivalCity + '(' + arrivalAirport + ')',
+                                'Total Time': duration,
+                                'Total Distance (km)': distance,
+                                'Class': cabin,
+                                'Departure Date and Time (GMT)': GetGMTDateTime(departureCity, datetime.fromisoformat(departureDateTime)),
+                                'Arrival Date and Time (GMT)': GetGMTDateTime(arrivalCity , datetime.fromisoformat(arrivalDateTime)),
+                                'Aircraft': '', 
+                                'Flight Number': flightNumbers,
+                                'Airline': airline,
+                                'Cost (Toman)': fare / 10,  
+                                'Cost (USD)': '{:.2f}'.format(fare / int(rate)),
+                                'USD to Toman Rate': rate / 10,  
+                            })
             else:
-                print("second request failed")    
+                print("getFlightAjax2 Failed")    
         else:
-            print("Error")
+            print("getFlightAjax Failed")
         
 
 if __name__ == '__main__':   
