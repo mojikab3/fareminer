@@ -63,6 +63,7 @@ def GetGMTDateTime(city_name, local_datetime):
             location = geolocator.geocode(city_name, timeout=10)
         except GeocoderTimedOut:
             print("Geocoding service timed out. try again")
+            return
         if location:
             tz_finder = TimezoneFinder()
             local_timezone_str = tz_finder.timezone_at(lng=location.longitude, lat=location.latitude)
