@@ -59,8 +59,10 @@ def GetFlightDistance(departure_airport, arrival_airport):
 def GetGMTDateTime(city_name, local_datetime):
     try:
         geolocator = Nominatim(user_agent="city_timezone_lookup")
-        location = geolocator.geocode(city_name)
-
+        try:
+            location = geolocator.geocode(city_name, timeout=10)
+        except GeocoderTimedOut:
+            print("Geocoding service timed out. try again")
         if location:
             tz_finder = TimezoneFinder()
             local_timezone_str = tz_finder.timezone_at(lng=location.longitude, lat=location.latitude)
@@ -211,14 +213,13 @@ def GetInterFare(origin, destination, rate=50000, date=str(datetime.now().date()
                 secondResponse = requests.post(secondUrl, json=secondPayload, headers=headers)
                     
             if secondResponse.status_code == 200: 
-                for page in range(1, 4):
+                for stop in range(2):
                     thirdPayload = {
                         "searchId": search_id,
-                        "page": page,
+                        "page": 1,
                         "filter": {
                             "outboundStops": [
-                                "0",
-                                "1"
+                                str(stop)
                             ]
                         }
                     } 
