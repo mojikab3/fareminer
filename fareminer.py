@@ -29,10 +29,6 @@ def GetDates(start, end):
     return dates
 
 
-def Error():
-    raise ValueError("Sorry, there's a problem")
-
-
 # Gets the distance between the departure airport and arrival airport in kilometers
 def GetFlightDistance(departure_airport, arrival_airport):
     
@@ -49,10 +45,8 @@ def GetFlightDistance(departure_airport, arrival_airport):
             distance_text = distance_element.get_text()
             distance_in_km = re.search(r'(\d+) kilometers', distance_text).group(1)
             return distance_in_km
-        else:
-            Error()
     else:
-        Error()
+        raise ValueError("Couldn't get the distance")
 
 
 # Converts local datetime to GMT datetime
@@ -62,8 +56,8 @@ def GetGMTDateTime(city_name, local_datetime):
         try:
             location = geolocator.geocode(city_name, timeout=10)
         except GeocoderTimedOut:
-            print("Geocoding service timed out. try again")
-            return
+            raise ValueError("Geocoding service timed out. try again")
+        
         if location:
             tz_finder = TimezoneFinder()
             local_timezone_str = tz_finder.timezone_at(lng=location.longitude, lat=location.latitude)
@@ -72,8 +66,7 @@ def GetGMTDateTime(city_name, local_datetime):
             gmt_datetime = local_datetime.astimezone(pytz.utc)
 
             return gmt_datetime
-        else:
-            Error()
+    
     except pytz.exceptions.UnknownTimeZoneError:
         return "Unknown time zone for the city"
 
@@ -123,6 +116,8 @@ def GetDomesticFare(origin, destination, rate=50000, date=str(datetime.now().dat
     if response.status_code == 200:
         data = response.json()
         itineraries = data.get('list', [])
+        if itineraries is None or itineraries == []:
+            print(f'No flight on {date}')
         distance = GetFlightDistance(origin, destination) 
         with open(output + '.csv', 'a', newline='') as csvfile:
             fieldnames = ['From', 'To', 'Total Time',
@@ -168,7 +163,7 @@ def GetDomesticFare(origin, destination, rate=50000, date=str(datetime.now().dat
 def GetInterFare(origin, destination, rate=50000, date=str(datetime.now().date()), output=None):
     
     print(f'Getting the data for {origin} => {destination}')
-    print(f'Press Ctrl + D to stop the script if you\'re happy with the results')
+    print(f'Press Ctrl + C to stop the script if you\'re happy with the results')
     
     if output is None: 
         output = origin + '_' + destination + '_' + str(datetime.now().date())
@@ -180,14 +175,14 @@ def GetInterFare(origin, destination, rate=50000, date=str(datetime.now().date()
         "Content-Type": "application/json;charset=UTF-8",
     }
     distance = GetFlightDistance(origin, destination) 
-    cabinTypes = ["1", "3", "5"]
-    for cabinType in cabinTypes:
+    cabinTypes = {"1": "Economy", "3": "Business", "5": "First"}
+    for cabinType in cabinTypes.keys():
             
         firstPayload = {
             "adult":"1",
             "child":"0",
             "infant":"0",
-            "cabinType":cabinType,
+            "cabinType": cabinType,
             "tripType":"1",
             "itineries":[{
                 "from":origin,"to":destination,
@@ -198,10 +193,11 @@ def GetInterFare(origin, destination, rate=50000, date=str(datetime.now().date()
             "searchId":0
         }
         
-        apiIds = [str(i) for i in range(1, 13)]
         response = requests.post(firstUrl, headers=headers, json=firstPayload)
         if response.status_code == 200:
             data = response.json()
+            apilist = data.get('list', {})
+            apiIds = apilist.keys()
             search_id = data.get('search_id')
             
             for apiId in apiIds:
@@ -215,6 +211,7 @@ def GetInterFare(origin, destination, rate=50000, date=str(datetime.now().date()
                     
             if secondResponse.status_code == 200: 
                 for stop in range(2):
+                    
                     thirdPayload = {
                         "searchId": search_id,
                         "page": 1,
@@ -226,9 +223,12 @@ def GetInterFare(origin, destination, rate=50000, date=str(datetime.now().date()
                     } 
                     
                     thirdResponse = requests.post(thirdUrl, json=thirdPayload, headers=headers)
-                    
                     data = thirdResponse.json()
                     flights = data.get('flights', [])
+                    if flights is None or flights == []:
+                        print(f'No {cabinTypes[cabinType]} {stop} stop  flight on {date}')
+                    else:
+                        print(f'{len(flights)} {cabinTypes[cabinType]} {stop} stop flights...')
                     with open(output + '.csv', 'a', newline='') as csvfile:
                         fieldnames = ['From', 'Stop', 'To', 'Total Time',
                                     'Total Distance (km)', 'Class',
@@ -287,14 +287,15 @@ def GetInterFare(origin, destination, rate=50000, date=str(datetime.now().date()
             print("getFlightAjax Failed")
         
 
+
 if __name__ == '__main__':   
     parser = argparse.ArgumentParser()
     parser.add_argument('origin', type=str, help='Departure city IATA code like THR, TBZ')
     parser.add_argument('destination', type=str, help='Arrival city IATA code like THR, TBZ')
     parser.add_argument('--domestic', '-d', action='store_true', help='Get fares for domestic flights')
     parser.add_argument('--international', '-i', action='store_true', help='Get fares for internationl flights')
-    parser.add_argument('--start', '-s', type=str, help='Date range start (2023-10-18) (leave emtpy for getting today\' flights )')
-    parser.add_argument('--end', '-e', type=str, help='Date range end (2023-10-20) (leave it if you want to get the fares only on the start date)')
+    parser.add_argument('--start', '-s', type=str, help='Date range start (2023-10-09) (leave emtpy for getting today\' flights )')
+    parser.add_argument('--end', '-e', type=str, help='Date range end (2023-10-01) (leave it if you want to get the fares only on the start date)')
     parser.add_argument('--output', '-o', type=str, help='output path')
     args = parser.parse_args()
 

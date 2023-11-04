@@ -36,11 +36,11 @@ python ./fareminer.py -d [Departure IATA code] [Arrival IATA code] -s [Start dat
 ```
 For example this command gets the flight data for Tehran-Tabriz route from 2023-11-3 to 2023-11-18
 ```bash
-python ./fareminer.py -d thr tbz -s 2023-11-3 -e 2023-11-18
+python ./fareminer.py -d thr tbz -s 2023-11-03 -e 2023-11-18
 ```
 To get the international flight data use -i instead of -d. leave the end date if you want to get the data for just a day instead of a period. you can change the output file name with -o 
 ```bash
-python ./fareminer.py -i fra ika -s 2023-11-2
+python ./fareminer.py -i fra ika -s 2023-11-02
 ```
 The mined data gets exported into a csv file which you can import into excell or google sheets or analyze it using pandas
 
